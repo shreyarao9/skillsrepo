@@ -1,211 +1,3 @@
-/* import './style.css';
-
-import firebase from 'firebase/app';
-import 'firebase/firestore';
-
-const firebaseConfig = {
-  // your config
-  apiKey: "AIzaSyDK0OZbGROxwjCcQ69PwxZmWYuUJadiXoQ",
-  authDomain: "skills-ecec4.firebaseapp.com",
-  projectId: "skills-ecec4",
-  storageBucket: "skills-ecec4.firebasestorage.app",
-  messagingSenderId: "676986571580",
-  appId: "1:676986571580:web:5909dfbe306de8b8786c39",
-  measurementId: "G-YWZG68BN4V"
-};
-
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const firestore = firebase.firestore();
-
-const servers = {
-  iceServers: [
-    {
-      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-    },
-  ],
-  iceCandidatePoolSize: 10,
-};
-
-// Global State
-const pc = new RTCPeerConnection(servers);
-let localStream = null;
-let remoteStream = null;
-
-// HTML elements
-const webcamButton = document.getElementById('webcamButton');
-const webcamVideo = document.getElementById('webcamVideo');
-const callButton = document.getElementById('callButton');
-const callInput = document.getElementById('callInput');
-const answerButton = document.getElementById('answerButton');
-const remoteVideo = document.getElementById('remoteVideo');
-const hangupButton = document.getElementById('hangupButton');
-
-// 1. Setup media sources
-
-webcamButton.onclick = async () => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  remoteStream = new MediaStream();
-
-  // Push tracks from local stream to peer connection
-  localStream.getTracks().forEach((track) => {
-    pc.addTrack(track, localStream);
-  });
-
-  // Pull tracks from remote stream, add to video stream
-  pc.ontrack = (event) => {
-    event.streams[0].getTracks().forEach((track) => {
-      remoteStream.addTrack(track);
-    });
-  };
-
-  webcamVideo.srcObject = localStream;
-  remoteVideo.srcObject = remoteStream;
-
-  initiateCallButton.disabled = false;
-  waitForCallButton.disabled = false;
-  webcamButton.disabled = true;
-};
-
-// 2. Create an offer
-callButton.onclick = async () => {
-  // Reference Firestore collections for signaling
-  const callDoc = firestore.collection('calls').doc();
-  const offerCandidates = callDoc.collection('offerCandidates');
-  const answerCandidates = callDoc.collection('answerCandidates');
-
-  callInput.value = callDoc.id;
-
-  // Get candidates for caller, save to db
-  pc.onicecandidate = (event) => {
-    event.candidate && offerCandidates.add(event.candidate.toJSON());
-  };
-
-  // Create offer
-  const offerDescription = await pc.createOffer();
-  await pc.setLocalDescription(offerDescription);
-
-  const offer = {
-    sdp: offerDescription.sdp,
-    type: offerDescription.type,
-  };
-
-  await callDoc.set({ offer });
-
-  const token = callDoc.id;
-  const receiverId = "receiver_user_id"
-
-  await fetch("http://localhost:8000/send-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, receiver_id: receiverId }),
-  });
-
-  // Listen for remote answer
-  callDoc.onSnapshot((snapshot) => {
-    const data = snapshot.data();
-    if (!pc.currentRemoteDescription && data?.answer) {
-      const answerDescription = new RTCSessionDescription(data.answer);
-      pc.setRemoteDescription(answerDescription);
-    }
-  });
-
-  // When answered, add candidate to peer connection
-  answerCandidates.onSnapshot((snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      if (change.type === 'added') {
-        const candidate = new RTCIceCandidate(change.doc.data());
-        pc.addIceCandidate(candidate);
-      }
-    });
-  });
-
-  hangupButton.disabled = false;
-};
-
-// 3. Answer the call with the unique ID
- answerButton.onclick = async () => {
-  const callId = callInput.value;
-  const callDoc = firestore.collection('calls').doc(callId);
-  const answerCandidates = callDoc.collection('answerCandidates');
-  const offerCandidates = callDoc.collection('offerCandidates');
-
-  pc.onicecandidate = (event) => {
-    event.candidate && answerCandidates.add(event.candidate.toJSON());
-  };
-
-  const callData = (await callDoc.get()).data();
-
-  const offerDescription = callData.offer;
-  await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
-
-  const answerDescription = await pc.createAnswer();
-  await pc.setLocalDescription(answerDescription);
-
-  const answer = {
-    type: answerDescription.type,
-    sdp: answerDescription.sdp,
-  };
-
-  await callDoc.update({ answer });
-
-  offerCandidates.onSnapshot((snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      console.log(change);
-      if (change.type === 'added') {
-        let data = change.doc.data();
-        pc.addIceCandidate(new RTCIceCandidate(data));
-      }
-    });
-  });
-}; 
-
-answerButton.onclick = async () => {
-  const receiverId = "receiver_user_id"; // Replace with the actual receiver ID
-
-  // Fetch the token (long polling)
-  const response = await fetch(`http://localhost:8000/get-token/${receiverId}`);
-  const data = await response.json();
-
-  if (data.call_token) {
-    const callId = data.call_token;
-    const callDoc = firestore.collection('calls').doc(callId);
-    const answerCandidates = callDoc.collection('answerCandidates');
-    const offerCandidates = callDoc.collection('offerCandidates');
-
-    pc.onicecandidate = (event) => {
-      event.candidate && answerCandidates.add(event.candidate.toJSON());
-    };
-
-    const callData = (await callDoc.get()).data();
-
-    const offerDescription = callData.offer;
-    await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
-
-    const answerDescription = await pc.createAnswer();
-    await pc.setLocalDescription(answerDescription);
-
-    const answer = {
-      type: answerDescription.type,
-      sdp: answerDescription.sdp,
-    };
-
-    await callDoc.update({ answer });
-
-    offerCandidates.onSnapshot((snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        const candidate = new RTCIceCandidate(change.doc.data());
-        pc.addIceCandidate(candidate);
-      });
-    });
-  } else {
-    console.error("No token received");
-  }
-};
-
- */
-
 import './style.css';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
@@ -244,11 +36,73 @@ async function setupMedia() {
   pc.ontrack = event => event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
   webcamVideo.srcObject = localStream;
   remoteVideo.srcObject = remoteStream;
+  console.log('media setup complete')
+}
+
+// Send ICE Candidate
+async function sendCandidate(token, candidate) {
+  const candidatesCollection = firestore.collection('calls').doc(token).collection('candidates');
+  await candidatesCollection.add(candidate);
+}
+
+// Listen for ICE Candidates
+async function listenForCandidates(token) {
+  const candidatesCollection = firestore.collection('calls').doc(token).collection('candidates');
+
+  candidatesCollection.onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type === 'added') {
+        const candidate = new RTCIceCandidate(change.doc.data());
+        if (pc.remoteDescription) {
+          pc.addIceCandidate(candidate).catch(console.error);
+        } else {
+          console.log('Remote description not set yet. Queueing candidate.');
+          pc.addEventListener('signalingstatechange', function onSignalingStateChange() {
+            if (pc.remoteDescription) {
+              pc.addIceCandidate(candidate).catch(console.error);
+              pc.removeEventListener('signalingstatechange', onSignalingStateChange);
+            }
+          });
+        }
+      }
+    });
+  });
 }
 
 async function sendOffer(token, offer) {
   const callDoc = firestore.collection('calls').doc(token);
   await callDoc.set({ offer: offer.toJSON() });
+}
+
+// Listen for Offer
+async function listenForOffer(token) {
+  const callDoc = firestore.collection('calls').doc(token);
+  const offerSnapshot = await callDoc.get();
+  if (offerSnapshot.exists) {
+    const offer = new RTCSessionDescription(offerSnapshot.data().offer);
+    console.log('Setting remote description for offer.');
+    await pc.setRemoteDescription(offer);
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await callDoc.update({ answer: pc.localDescription.toJSON() });
+
+    console.log('Answer sent.');
+  } else {
+    console.error('Offer not found for token:', token);
+  }
+}
+
+// Listen for Answer
+async function listenForAnswer(token) {
+  const callDoc = firestore.collection('calls').doc(token);
+  callDoc.onSnapshot(snapshot => {
+    const data = snapshot.data();
+    if (data?.answer) {
+      const answer = new RTCSessionDescription(data.answer);
+      pc.setRemoteDescription(answer);
+    }
+  });
 }
 
 // Start WebRTC connection
@@ -257,26 +111,44 @@ async function startConnection(isCaller, token) {
     if (event.candidate) sendCandidate(token, event.candidate.toJSON());
   };
 
+  pc.onconnectionstatechange = () => {
+    console.log('Connection state:', pc.connectionState);
+    if (pc.connectionState === 'disconnected') hangup();
+  };
+
+  pc.onicecandidateerror = event => {
+    console.error('ICE Candidate error:', event);
+  };
+
+  listenForCandidates(token);
+
   if (isCaller) {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    sendOffer(token, pc.localDescription);
+    await sendOffer(token, pc.localDescription);
+    listenForAnswer(token);
   } else {
     listenForOffer(token);
   }
-
-  pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'disconnected') hangup();
-  };
 }
 
 // Hangup
-function hangup() {
+hangupButton.onclick = () => {
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  if (remoteStream) {
+    remoteStream.getTracks().forEach(track => track.stop());
+    remoteStream = null;
+  }
   pc.close();
   pc.onicecandidate = null;
   pc.ontrack = null;
+  pc.onconnectionstatechange = null;
+  pc.onicecandidateerror = null;
   hangupButton.disabled = true;
-  // Notify backend to cleanup (optional)
+  console.log('Call ended.');
 }
 
 // Initiate a call
@@ -288,29 +160,42 @@ initiateCallButton.onclick = async () => {
   const token = callDoc.id;
 
   // Notify receiver via backend
-  await fetch('http://localhost:8000/send-token', {
+  await fetch('https://kangaroo-witty-glowworm.ngrok-free.app/send-token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': '69420',
+     },
     body: JSON.stringify({ token, receiver_id: receiverId }),
   });
 
-  setupMedia();
-  startConnection(true, token);
+  await setupMedia();
+  await startConnection(true, token);
   hangupButton.disabled = false;
 };
 
 // Wait for a call
 waitForCallButton.onclick = async () => {
-  setupMedia();
+  await setupMedia();
 
   const receiverId = prompt('Enter your User ID to wait for calls:');
   if (!receiverId) return;
 
-  const token = await fetch(`http://localhost:8000/get-token/${receiverId}`).then(res => res.json());
-  if (token.call_token) {
-    startConnection(false, token.call_token);
-    hangupButton.disabled = false;
-  } else {
-    alert('No incoming calls.');
+  try {
+    const response = await fetch(`https://kangaroo-witty-glowworm.ngrok-free.app/get-token/${receiverId}`, {
+      method: 'GET',
+      headers: {
+        'ngrok-skip-browser-warning': '69420',
+      }
+  });
+    const data = await response.json(); // This might fail if the response isn't JSON
+    if (data.call_token) {
+      await startConnection(false, data.call_token);
+      hangupButton.disabled = false;
+    } else {
+      alert(data.error || 'No incoming calls.');
+    }
+  } catch (error) {
+    console.error('Failed to fetch token:', error);
+    alert('Failed to fetch token. Check console for details.');
   }
 };
