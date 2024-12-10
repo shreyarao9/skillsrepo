@@ -1,0 +1,82 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h2>1. Start Your Webcam</h2>
+    <div class="videos">
+      <div>
+        <h3>Local Stream</h3>
+        <video id="webcamVideo" autoplay playsinline></video>
+      </div>
+      <div>
+        <h3>Remote Stream</h3>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+    </div>
+
+    <button id="webcamButton">Start Webcam</button>
+
+   <h2>2. Create a New Call</h2>
+    <button id="callButton" disabled>Create Call (Offer)</button>
+
+    <h2>3. Join a Call</h2>
+    <p>Answer the call from a different browser window or device:</p>
+    <input id="callInput" placeholder="Enter Call ID" />
+    <button id="answerButton" disabled>Answer Call</button>
+
+    <h3>Initiate a Call</h3>
+    <input id="receiverIdInput" placeholder="Enter Receiver's User ID" />
+    <button id="initiateCallButton">Initiate Call</button>
+
+    <h3>Wait for a Call</h3>
+    <button id="waitForCallButton">Wait for Call</button>
+
+    <h2>4. Hangup</h2>
+    <button id="hangupButton" disabled>Hangup</button>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
+ -->
+
+ <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC with Auto Signaling</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h2>WebRTC Demo</h2>
+
+    <h3>Initiate a Call</h3>
+    <input id="receiverIdInput" placeholder="Enter Receiver's User ID" />
+    <button id="initiateCallButton">Initiate Call</button>
+
+    <h3>Wait for a Call</h3>
+    <button id="waitForCallButton">Wait for Call</button>
+
+    <h3>Video Streams</h3>
+    <div class="videos">
+      <div>
+        <h4>Local Stream</h4>
+        <video id="webcamVideo" autoplay playsinline></video>
+      </div>
+      <div>
+        <h4>Remote Stream</h4>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+    </div>
+
+    <h3>Hangup</h3>
+    <button id="hangupButton" disabled>Hangup</button>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
