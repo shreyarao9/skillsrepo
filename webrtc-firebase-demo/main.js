@@ -133,7 +133,7 @@ async function startConnection(isCaller, token) {
 }
 
 // Hangup
-hangupButton.onclick = () => {
+function hangup() {
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
@@ -150,6 +150,10 @@ hangupButton.onclick = () => {
   hangupButton.disabled = true;
   console.log('Call ended.');
 }
+
+hangupButton.onclick = () => {
+  hangup()
+};
 
 // Initiate a call
 initiateCallButton.onclick = async () => {
