@@ -203,3 +203,95 @@ waitForCallButton.onclick = async () => {
     alert('Failed to fetch token. Check console for details.');
   }
 };
+
+// The following code is for recording and downloading remote streams.
+let mediaRecorder;
+let recordedChunks = [];
+
+// HTML Elements for recording controls
+const startRecordingButton = document.getElementById('startRecordingButton');
+const stopRecordingButton = document.getElementById('stopRecordingButton');
+
+// Initialize the MediaRecorder with local and remote audio, and remote video
+async function startRecording() {
+  if (!localStream || !remoteStream) {
+    alert('Both local and remote streams must be available.');
+    return;
+  }
+
+  const audioContext = new AudioContext();
+
+  // Create MediaStreamSources for local and remote audio
+  const localAudioSource = audioContext.createMediaStreamSource(localStream);
+  const remoteAudioSource = audioContext.createMediaStreamSource(remoteStream);
+
+  // Create a MediaStreamDestination to mix audio
+  const mixedAudioDestination = audioContext.createMediaStreamDestination();
+
+  // Connect audio sources to the destination
+  localAudioSource.connect(mixedAudioDestination);
+  remoteAudioSource.connect(mixedAudioDestination);
+
+  // Get the remote video track
+  const remoteVideoTrack = remoteStream.getVideoTracks()[0];
+
+  if (!remoteVideoTrack) {
+    alert('No remote video track found.');
+    return;
+  }
+
+  // Combine mixed audio and remote video into a single MediaStream
+  const combinedStream = new MediaStream([
+    ...mixedAudioDestination.stream.getAudioTracks(),
+    remoteVideoTrack,
+  ]);
+
+  // Create a MediaRecorder for the combined stream
+  mediaRecorder = new MediaRecorder(combinedStream);
+
+  // Event listener for when data is available
+  mediaRecorder.ondataavailable = (event) => {
+    recordedChunks.push(event.data);
+  };
+
+  // Event listener for when the recording is stopped
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+
+    // Create a link to download the recording
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'recorded_call.webm';
+    document.body.appendChild(a);
+    a.click();
+
+    // Clean up
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    recordedChunks = [];
+  };
+
+  // Start recording
+  mediaRecorder.start();
+  console.log('Recording started...');
+  startRecordingButton.disabled = true;
+  stopRecordingButton.disabled = false;
+}
+
+// Stop the recording
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    console.log('Recording stopped...');
+    startRecordingButton.disabled = false;
+    stopRecordingButton.disabled = true;
+  } else {
+    alert('No active recording to stop.');
+  }
+}
+
+// Attach event listeners to buttons
+startRecordingButton.onclick = startRecording;
+stopRecordingButton.onclick = stopRecording;
