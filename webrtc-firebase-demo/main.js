@@ -4,13 +4,7 @@ import 'firebase/firestore';
 
 // Initialize Firebase (Replace with your config)
 const firebaseConfig = { 
-  apiKey: "AIzaSyDK0OZbGROxwjCcQ69PwxZmWYuUJadiXoQ",
-  authDomain: "skills-ecec4.firebaseapp.com",
-  projectId: "skills-ecec4",
-  storageBucket: "skills-ecec4.firebasestorage.app",
-  messagingSenderId: "676986571580",
-  appId: "1:676986571580:web:5909dfbe306de8b8786c39",
-  measurementId: "G-YWZG68BN4V"
+  //insert firebase config details from firebase console
  };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
